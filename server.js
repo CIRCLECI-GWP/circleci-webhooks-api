@@ -9,7 +9,7 @@ const app = express();
 // Webhook signature settings
 const sigHeaderName = 'circleci-signature';
 const sigHashAlg = 'sha256';
-const secret = "XXX-XXX";
+const secret = "ABCD123";
 
 
 app.use(express.json(
