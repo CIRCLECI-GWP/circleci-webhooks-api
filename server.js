@@ -1,18 +1,18 @@
 const express = require("express");
 const routes = require("./routes");
-const bodyParser = require('body-parser');
 const { startDatabase } = require("./database");
 const crypto = require('crypto');
 
 // App
 const app = express();
 
+// Webhook signature settings
 const sigHeaderName = 'circleci-signature';
 const sigHashAlg = 'sha256';
 const secret = "ABCD123";
 
 
-app.use(bodyParser.json(
+app.use(express.json(
     {
         verify: (req, res, buf, encoding) => {
             if (buf && buf.length) {
@@ -46,11 +46,13 @@ function validatePayload(req, res, next) {
         if (!req.rawBody) {
             return next('Request body empty')
         }
-    
-        const sig = Buffer.from(req.get(sigHeaderName) || '', 'utf8')
+
+        // The header is a comma-separated list of versioned signatures (v1=...,v2=...). Check v1.
+        const signatures = (req.get(sigHeaderName) || '').split(',');
+        const sig = Buffer.from(signatures.find((s) => s.startsWith('v1=')) || '', 'utf8')
         const hmac = crypto.createHmac(sigHashAlg, secret)
         const digest = Buffer.from('v1=' + hmac.update(req.rawBody).digest('hex'), 'utf8');
-    
+
         if (sig.length !== digest.length || !crypto.timingSafeEqual(digest, sig)) {
             return next(`Request body digest (${digest}) did not match ${sigHeaderName} (${sig})`)
         }
