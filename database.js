@@ -2,28 +2,33 @@ const { MongoMemoryServer } = require("mongodb-memory-server");
 const { MongoClient } = require("mongodb");
 const data = require("./data");
 
-let database = null;
+let mongo = null;
+let client = null;
+let databasePromise = null;
 
-const mongo = new MongoMemoryServer();
-
-async function startDatabase() {
-  const mongoDBURL = await mongo.getUri();
-  const connection = await MongoClient.connect(mongoDBURL, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
+async function connectAndSeed() {
+  mongo = await MongoMemoryServer.create();
+  client = await MongoClient.connect(mongo.getUri());
 
   //Seed Database
-  if (!database) {
-    database = connection.db();
-    await database.collection("webhooks").insertMany(data.Webhooks);
-  }
+  const database = client.db();
+  await database.collection("webhooks").insertMany(data.Webhooks);
 
   return database;
 }
 
+// Start the in-memory database once and reuse it for every request
+function startDatabase() {
+  if (!databasePromise) {
+    databasePromise = connectAndSeed();
+  }
+
+  return databasePromise;
+}
+
 async function stopDatabase() {
-  await mongo.stop();
+  if (client) await client.close();
+  if (mongo) await mongo.stop();
 }
 
 module.exports = {
